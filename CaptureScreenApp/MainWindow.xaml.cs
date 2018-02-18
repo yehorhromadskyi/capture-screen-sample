@@ -26,6 +26,9 @@ namespace CaptureScreenApp
         DeviceScanner deviceScanner;
         DeviceIO deviceIO;
 
+        [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+        public static extern bool DeleteObject(IntPtr hObject);
+
         public MainWindow()
         {
             InitializeComponent();
@@ -43,7 +46,7 @@ namespace CaptureScreenApp
         {
             while (true)
             {
-                //Send Discovery Message
+                // Send Discovery Message
                 deviceScanner.SendDiscoveryMessage();
                 await Task.Delay(100);
                 if (deviceScanner.DiscoveredDevices.Any())
@@ -53,32 +56,34 @@ namespace CaptureScreenApp
                     break;
                 }
             }
+
             _timer.Start();
         }
 
         private void Timer_Tick(object sender, EventArgs e)
         {
-            _quantizer.Clear();
+            //Debug.WriteLine("Started: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
-            var sw = new Stopwatch();
-            sw.Start();
             using (var screenBmp = new Bitmap((int)SystemParameters.PrimaryScreenWidth,
                                               (int)SystemParameters.PrimaryScreenHeight,
                                               System.Drawing.Imaging.PixelFormat.Format16bppRgb555))
             {
 
-                Debug.WriteLine("Created screen bmp " + sw.ElapsedMilliseconds);
-                sw.Restart();
-
                 using (var bmpGraphics = Graphics.FromImage(screenBmp))
                 {
                     bmpGraphics.CopyFromScreen(0, 0, 0, 0, screenBmp.Size);
 
+                    //Debug.WriteLine("Copied from screen: " + GC.GetTotalMemory(true) / 1000 / 1000);
+
+                    var bitmapPtr = screenBmp.GetHbitmap();
+
                     var image = Imaging.CreateBitmapSourceFromHBitmap(
-                        screenBmp.GetHbitmap(),
+                        bitmapPtr,
                         IntPtr.Zero,
                         Int32Rect.Empty,
                         BitmapSizeOptions.FromEmptyOptions());
+
+                    //Debug.WriteLine("Created source from HBitmap: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
                     Bitmap bitmap;
 
@@ -90,13 +95,16 @@ namespace CaptureScreenApp
                         bitmap = new Bitmap(outStream);
                     }
 
-                    Debug.WriteLine("Saved to bitmap " + sw.ElapsedMilliseconds);
-                    sw.Restart();
+                    DeleteObject(bitmapPtr);
+
+                    //Debug.WriteLine("Created Bitmap: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
                     var bounds = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
                     var bitmapData =
                         bitmap.LockBits(bounds, System.Drawing.Imaging.ImageLockMode.ReadOnly,
                         bitmap.PixelFormat);
+
+                    //Debug.WriteLine("Lock Bits: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
                     IntPtr bitmapDataPointer = bitmapData.Scan0;
 
@@ -111,6 +119,8 @@ namespace CaptureScreenApp
                         // copies the whole row of pixels to the buffer
                         Marshal.Copy(new IntPtr(sourceOffset), sourceBuffer, 0, bitmap.Width);
 
+                        //Debug.WriteLine("Marshal Copied: " + GC.GetTotalMemory(true) / 1000 / 1000);
+
                         // scans all the colors in the buffer
                         foreach (Color color in sourceBuffer.Select(argb => Color.FromArgb(argb)))
                         {
@@ -121,11 +131,20 @@ namespace CaptureScreenApp
                         sourceOffset += bitmapData.Stride;
                     }
 
+                    //Debug.WriteLine("Quantizer filled: " + GC.GetTotalMemory(true) / 1000 / 1000);
+
                     bitmap.UnlockBits(bitmapData);
+
+                    //Debug.WriteLine("Unlock Bits: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
                     var mainColor = _quantizer.GetPalette(2).OrderBy(c => GetBrightness(c)).FirstOrDefault();
 
-                    Debug.WriteLine("Quantization " + sw.ElapsedMilliseconds);
+                    //Debug.WriteLine("Quantizer gave palette: " + GC.GetTotalMemory(true) / 1000 / 1000);
+
+                    _quantizer.Clear();
+                    //GC.Collect();
+
+                    //Debug.WriteLine("Quantizer cleared: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
                     Background.Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(mainColor.A, mainColor.R, mainColor.G, mainColor.B));
 
