@@ -52,7 +52,7 @@ namespace CaptureScreenApp
                 if (deviceScanner.DiscoveredDevices.Any())
                 {
                     deviceIO.Connect(deviceScanner.DiscoveredDevices.First());
-                    deviceIO.SetBrightness(1, 100);
+                    deviceIO.SetBrightness(1, 500);
                     break;
                 }
             }
@@ -62,49 +62,39 @@ namespace CaptureScreenApp
 
         private void Timer_Tick(object sender, EventArgs e)
         {
-            //Debug.WriteLine("Started: " + GC.GetTotalMemory(true) / 1000 / 1000);
-
             using (var screenBmp = new Bitmap((int)SystemParameters.PrimaryScreenWidth,
                                               (int)SystemParameters.PrimaryScreenHeight,
-                                              System.Drawing.Imaging.PixelFormat.Format16bppRgb555))
+                                              System.Drawing.Imaging.PixelFormat.Format32bppRgb))
             {
 
                 using (var bmpGraphics = Graphics.FromImage(screenBmp))
                 {
                     bmpGraphics.CopyFromScreen(0, 0, 0, 0, screenBmp.Size);
 
-                    //Debug.WriteLine("Copied from screen: " + GC.GetTotalMemory(true) / 1000 / 1000);
-
                     var bitmapPtr = screenBmp.GetHbitmap();
 
-                    var image = Imaging.CreateBitmapSourceFromHBitmap(
+                    var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
                         bitmapPtr,
                         IntPtr.Zero,
                         Int32Rect.Empty,
                         BitmapSizeOptions.FromEmptyOptions());
-
-                    //Debug.WriteLine("Created source from HBitmap: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
                     Bitmap bitmap;
 
                     using (var outStream = new MemoryStream())
                     {
                         BitmapEncoder enc = new BmpBitmapEncoder();
-                        enc.Frames.Add(BitmapFrame.Create(image));
+                        enc.Frames.Add(BitmapFrame.Create(bitmapSource));
                         enc.Save(outStream);
                         bitmap = new Bitmap(outStream);
                     }
 
                     DeleteObject(bitmapPtr);
 
-                    //Debug.WriteLine("Created Bitmap: " + GC.GetTotalMemory(true) / 1000 / 1000);
-
                     var bounds = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
                     var bitmapData =
                         bitmap.LockBits(bounds, System.Drawing.Imaging.ImageLockMode.ReadOnly,
                         bitmap.PixelFormat);
-
-                    //Debug.WriteLine("Lock Bits: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
                     IntPtr bitmapDataPointer = bitmapData.Scan0;
 
@@ -119,8 +109,6 @@ namespace CaptureScreenApp
                         // copies the whole row of pixels to the buffer
                         Marshal.Copy(new IntPtr(sourceOffset), sourceBuffer, 0, bitmap.Width);
 
-                        //Debug.WriteLine("Marshal Copied: " + GC.GetTotalMemory(true) / 1000 / 1000);
-
                         // scans all the colors in the buffer
                         foreach (Color color in sourceBuffer.Select(argb => Color.FromArgb(argb)))
                         {
@@ -131,20 +119,12 @@ namespace CaptureScreenApp
                         sourceOffset += bitmapData.Stride;
                     }
 
-                    //Debug.WriteLine("Quantizer filled: " + GC.GetTotalMemory(true) / 1000 / 1000);
-
                     bitmap.UnlockBits(bitmapData);
-
-                    //Debug.WriteLine("Unlock Bits: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
                     var mainColor = _quantizer.GetPalette(2).OrderBy(c => GetBrightness(c)).FirstOrDefault();
 
-                    //Debug.WriteLine("Quantizer gave palette: " + GC.GetTotalMemory(true) / 1000 / 1000);
-
                     _quantizer.Clear();
                     //GC.Collect();
-
-                    //Debug.WriteLine("Quantizer cleared: " + GC.GetTotalMemory(true) / 1000 / 1000);
 
                     Background.Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(mainColor.A, mainColor.R, mainColor.G, mainColor.B));
 
