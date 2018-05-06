@@ -26,8 +26,8 @@ namespace CaptureScreenApp
         DeviceScanner deviceScanner;
         DeviceIO deviceIO;
 
-        [System.Runtime.InteropServices.DllImport("gdi32.dll")]
-        public static extern bool DeleteObject(IntPtr hObject);
+        //[System.Runtime.InteropServices.DllImport("gdi32.dll")]
+        //public static extern bool DeleteObject(IntPtr hObject);
 
         public MainWindow()
         {
@@ -62,34 +62,34 @@ namespace CaptureScreenApp
 
         private void Timer_Tick(object sender, EventArgs e)
         {
-            using (var screenBmp = new Bitmap((int)SystemParameters.PrimaryScreenWidth,
+            using (var bitmap = new Bitmap((int)SystemParameters.PrimaryScreenWidth,
                                               (int)SystemParameters.PrimaryScreenHeight,
                                               System.Drawing.Imaging.PixelFormat.Format32bppRgb))
             {
 
-                using (var bmpGraphics = Graphics.FromImage(screenBmp))
+                using (var bmpGraphics = Graphics.FromImage(bitmap))
                 {
-                    bmpGraphics.CopyFromScreen(0, 0, 0, 0, screenBmp.Size);
+                    bmpGraphics.CopyFromScreen(0, 0, 0, 0, bitmap.Size);
 
-                    var bitmapPtr = screenBmp.GetHbitmap();
+                    //var bitmapPtr = screenBmp.GetHbitmap();
 
-                    var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
-                        bitmapPtr,
-                        IntPtr.Zero,
-                        Int32Rect.Empty,
-                        BitmapSizeOptions.FromEmptyOptions());
+                    //var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
+                    //    bitmapPtr,
+                    //    IntPtr.Zero,
+                    //    Int32Rect.Empty,
+                    //    BitmapSizeOptions.FromEmptyOptions());
 
-                    Bitmap bitmap;
+                    //Bitmap bitmap;
 
-                    using (var outStream = new MemoryStream())
-                    {
-                        BitmapEncoder enc = new BmpBitmapEncoder();
-                        enc.Frames.Add(BitmapFrame.Create(bitmapSource));
-                        enc.Save(outStream);
-                        bitmap = new Bitmap(outStream);
-                    }
+                    //using (var outStream = new MemoryStream())
+                    //{
+                    //    BitmapEncoder enc = new BmpBitmapEncoder();
+                    //    enc.Frames.Add(BitmapFrame.Create(bitmapSource));
+                    //    enc.Save(outStream);
+                    //    bitmap = new Bitmap(outStream);
+                    //}
 
-                    DeleteObject(bitmapPtr);
+                    //DeleteObject(bitmapPtr);
 
                     var bounds = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
                     var bitmapData =
